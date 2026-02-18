@@ -1,0 +1,42 @@
+{{define "layout"}}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ressources</title>
+  <style>
+    body{font-family:system-ui,Arial;margin:0;background:#0b0c10;color:#e7e7e7}
+    a{color:#7aa2ff;text-decoration:none}
+    .wrap{max-width:980px;margin:0 auto;padding:24px}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .card{background:#141622;border:1px solid #242842;border-radius:12px;padding:14px;margin:12px 0}
+    input,textarea,select{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2f4e;background:#0f1120;color:#e7e7e7}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #2a2f4e;background:#1b2040;color:#fff;cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .muted{opacity:.8}
+    .pill{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid #2a2f4e}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><a href="/"><b>📚 Ressources</b></a> <span class="muted">— annuaire communautaire</span></div>
+    <div>
+      {{if .User}}
+        <span class="pill">{{.User.Email}}</span>
+        <a href="/resource/new" style="margin-left:10px">+ Ajouter</a>
+        <a href="/logout" style="margin-left:10px">Se déconnecter</a>
+      {{else}}
+        <a href="/login">Connexion</a>
+        <a href="/register" style="margin-left:10px">Inscription</a>
+      {{end}}
+    </div>
+  </div>
+
+  {{template "content" .}}
+
+</div>
+</body>
+</html>
+{{end}}

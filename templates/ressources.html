@@ -1,0 +1,38 @@
+{{define "content"}}
+<div class="card">
+  <h2>{{.Resource.Title}}</h2>
+  <div class="muted"><a href="{{.Resource.URL}}" target="_blank" rel="noreferrer">{{.Resource.URL}}</a></div>
+  <p>{{.Resource.Description}}</p>
+</div>
+
+<div class="card">
+  <h3>Commentaires</h3>
+
+  {{if .User}}
+  <form method="post" action="/resource/comment">
+    <input type="hidden" name="resource_id" value="{{.Resource.ID}}">
+    <label>Ton avis</label><br/>
+    <textarea name="content" rows="3" required></textarea><br/><br/>
+    <label>Label</label><br/>
+    <select name="label">
+      <option value="recommended">✅ Recommandé</option>
+      <option value="obsolete">⚠️ Obsolète</option>
+    </select><br/><br/>
+    <button>Publier</button>
+  </form>
+  {{else}}
+    <p class="muted">Connecte-toi pour commenter.</p>
+  {{end}}
+</div>
+
+{{range .Comments}}
+  <div class="card">
+    <div class="muted"><b>{{.Email}}</b> — {{.CreatedAt}} — {{if eq .Label "recommended"}}✅ recommandé{{else}}⚠️ obsolète{{end}}</div>
+    <p>{{.Content}}</p>
+  </div>
+{{else}}
+  <div class="card">Pas encore de commentaires.</div>
+{{end}}
+{{end}}
+
+{{define "resource.html"}}{{template "layout" .}}{{end}}

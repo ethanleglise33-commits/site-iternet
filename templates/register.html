@@ -1,0 +1,14 @@
+{{define "content"}}
+<div class="card">
+  <h2>Inscription</h2>
+  {{if .Error}}<p style="color:#ff8b8b">{{.Error}}</p>{{end}}
+  <form method="post" action="/register">
+    <label>Email</label><br/>
+    <input name="email" type="email" required/><br/><br/>
+    <label>Mot de passe</label><br/>
+    <input name="password" type="password" minlength="8" required/><br/><br/>
+    <button>S’inscrire</button>
+  </form>
+</div>
+{{end}}
+{{define "register.html"}}{{template "layout" .}}{{end}}

@@ -1,0 +1,17 @@
+{{define "content"}}
+<div class="card">
+  <div class="muted">Ajoute des liens utiles (outils, docs, blogs, portfolios) et laisse des retours.</div>
+</div>
+
+{{range .Items}}
+  <div class="card">
+    <div><a href="/resource?id={{.ID}}"><b>{{.Title}}</b></a></div>
+    <div class="muted"><a href="{{.URL}}" target="_blank" rel="noreferrer">{{.URL}}</a></div>
+    <p>{{.Description}}</p>
+  </div>
+{{else}}
+  <div class="card">Aucune ressource pour l’instant. {{if $.User}}<a href="/resource/new">Ajoute la première</a>.{{end}}</div>
+{{end}}
+{{end}}
+
+{{define "index.html"}}{{template "layout" .}}{{end}}
