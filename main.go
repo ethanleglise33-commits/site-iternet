@@ -10,7 +10,6 @@ import (
 var templates *template.Template
 
 func main() {
-
 	// ----- PORT RENDER -----
 	port := os.Getenv("PORT")
 	if port == "" {
