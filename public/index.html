@@ -3,50 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Message Board</title>
+  <title>ChatSpace</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
 
-    <header>
-      <h1>💬 Message Board</h1>
-      <p class="subtitle">Laissez un message pour tout le monde !</p>
-    </header>
+  <!-- ── Écran Auth ────────────────────────────────────────────── -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="stars" id="stars"></div>
+    <div class="auth-card">
+      <div class="auth-logo">🚀</div>
+      <h1 class="auth-title">ChatSpace</h1>
+      <p class="auth-subtitle">Rejoignez la conversation</p>
 
-    <section class="form-section">
-      <h2>Nouveau message</h2>
-      <form id="message-form">
-        <div class="form-group">
-          <label for="author">Votre nom</label>
-          <input type="text" id="author" placeholder="Anonyme" maxlength="100" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label for="message">Message <span class="required">*</span></label>
-          <textarea id="message" placeholder="Écrivez votre message ici..." maxlength="1000" required></textarea>
-          <span class="char-count"><span id="char-count">0</span>/1000</span>
-        </div>
-        <button type="submit" id="submit-btn">
-          <span class="btn-text">Envoyer</span>
-          <span class="btn-loader" hidden>Envoi en cours…</span>
+      <div class="auth-tabs">
+        <button class="tab-btn active" data-tab="login">Connexion</button>
+        <button class="tab-btn" data-tab="register">Inscription</button>
+      </div>
+
+      <!-- Connexion -->
+      <form id="login-form" class="auth-form">
+        <input type="email"    id="login-email"    placeholder="Email"        required autocomplete="email">
+        <input type="password" id="login-password" placeholder="Mot de passe" required>
+        <button type="submit" id="login-btn" class="auth-btn">
+          <span class="btn-text">Se connecter</span>
+          <span class="btn-loader" hidden>Connexion…</span>
         </button>
+        <div id="login-error" class="auth-error" hidden></div>
       </form>
-      <div id="form-error" class="error-msg" hidden></div>
-    </section>
 
-    <section class="messages-section">
-      <div class="messages-header">
-        <h2>Messages</h2>
-        <span id="message-count" class="badge" hidden></span>
-      </div>
-      <div id="messages-container">
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
-      </div>
-    </section>
-
+      <!-- Inscription -->
+      <form id="register-form" class="auth-form" hidden>
+        <input type="text"     id="reg-username" placeholder="Nom d'utilisateur" required maxlength="30" pattern="[a-zA-Z0-9_-]{2,30}">
+        <input type="email"    id="reg-email"    placeholder="Email"              required autocomplete="email">
+        <input type="password" id="reg-password" placeholder="Mot de passe (min. 6 caractères)" required minlength="6" autocomplete="new-password">
+        <button type="submit" id="register-btn" class="auth-btn">
+          <span class="btn-text">Créer mon compte</span>
+          <span class="btn-loader" hidden>Création…</span>
+        </button>
+        <div id="register-error" class="auth-error" hidden></div>
+      </form>
+    </div>
   </div>
+
+  <!-- ── Écran App ─────────────────────────────────────────────── -->
+  <div id="app-screen" class="app-screen" hidden>
+    <div class="app-layout">
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">🚀 ChatSpace</div>
+        <div class="channels-label">SALONS</div>
+        <div class="channel-item active"><span class="ch-hash">#</span> général</div>
+        <div class="sidebar-footer">
+          <div class="current-user">
+            <div class="user-avatar" id="sidebar-avatar"></div>
+            <div class="user-name"   id="sidebar-username"></div>
+          </div>
+          <button class="logout-btn" id="logout-btn" title="Se déconnecter">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Chat principal -->
+      <main class="chat-main">
+        <div class="chat-header">
+          <span class="hash-icon">#</span>
+          <span class="channel-name">général</span>
+          <span class="channel-desc">Le salon de discussion public</span>
+        </div>
+        <div class="messages-area" id="messages-container">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+        <div class="input-area">
+          <form id="message-form">
+            <div class="input-wrapper">
+              <textarea id="message" placeholder="Envoyer un message dans #général… (Entrée pour envoyer)" maxlength="1000" rows="1"></textarea>
+              <button type="submit" class="send-btn" title="Envoyer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </div>
+          </form>
+          <div id="form-error" class="error-msg" hidden></div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

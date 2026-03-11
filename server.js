@@ -1,14 +1,14 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
+const cors    = require('cors');
+const path    = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 3000;
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-  console.error('❌ SUPABASE_URL et SUPABASE_ANON_KEY sont requis. Vérifie tes variables d\'environnement.');
+  console.error('❌ SUPABASE_URL et SUPABASE_ANON_KEY sont requis.');
   process.exit(1);
 }
 
@@ -19,16 +19,52 @@ const supabase = createClient(
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  },
+}));
 
-// GET tous les messages
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, version: 'chatspace-auth-v2' });
+});
+
+// ── Config publique (anon key est safe à exposer) ─────────────────────────
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl:     process.env.SUPABASE_URL,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+  });
+});
+
+// ── Middleware auth ────────────────────────────────────────────────────────
+async function authenticateUser(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Non authentifié.' });
+  }
+  const token = authHeader.slice(7);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) {
+    return res.status(401).json({ error: 'Token invalide ou expiré.' });
+  }
+  req.user  = user;
+  req.token = token;
+  next();
+}
+
+// ── GET messages (public) ──────────────────────────────────────────────────
 app.get('/api/messages', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+      .select('*, profiles(username, avatar_color)')
+      .order('created_at', { ascending: true })
+      .limit(200);
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -36,23 +72,25 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// POST un nouveau message
-app.post('/api/messages', async (req, res) => {
+// ── POST message (auth requis) ─────────────────────────────────────────────
+app.post('/api/messages', authenticateUser, async (req, res) => {
   try {
-    const { text, author } = req.body;
-
+    const { text } = req.body;
     if (!text || text.trim() === '') {
       return res.status(400).json({ error: 'Le message ne peut pas être vide.' });
     }
-
     const sanitizedText = text.trim().slice(0, 1000);
-    const sanitizedAuthor = (author?.trim() || 'Anonyme').slice(0, 100);
 
-    const { data, error } = await supabase
+    // Client avec le JWT de l'utilisateur → RLS s'applique avec son identité
+    const userClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: `Bearer ${req.token}` } } }
+    );
+    const { data, error } = await userClient
       .from('messages')
-      .insert([{ text: sanitizedText, author: sanitizedAuthor }])
-      .select();
-
+      .insert([{ text: sanitizedText, user_id: req.user.id }])
+      .select('*, profiles(username, avatar_color)');
     if (error) throw error;
     res.status(201).json(data[0]);
   } catch (err) {
@@ -60,21 +98,28 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
-// DELETE un message
-app.delete('/api/messages/:id', async (req, res) => {
+// ── DELETE message (auth + propriétaire uniquement) ────────────────────────
+app.delete('/api/messages/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Vérifie que l'id est un nombre
-    if (isNaN(id)) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
       return res.status(400).json({ error: 'ID invalide.' });
     }
 
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('id', Number(id));
+    // Vérification propriété
+    const { data: msg } = await supabase
+      .from('messages').select('user_id').eq('id', id).single();
+    if (!msg || msg.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorisé.' });
+    }
 
+    const userClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: `Bearer ${req.token}` } } }
+    );
+    const { error } = await userClient.from('messages').delete().eq('id', id);
     if (error) throw error;
     res.json({ success: true });
   } catch (err) {
