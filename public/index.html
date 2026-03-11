@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Message Board</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <h1>💬 Message Board</h1>
+      <p class="subtitle">Laissez un message pour tout le monde !</p>
+    </header>
+
+    <section class="form-section">
+      <h2>Nouveau message</h2>
+      <form id="message-form">
+        <div class="form-group">
+          <label for="author">Votre nom</label>
+          <input type="text" id="author" placeholder="Anonyme" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="message">Message <span class="required">*</span></label>
+          <textarea id="message" placeholder="Écrivez votre message ici..." maxlength="1000" required></textarea>
+          <span class="char-count"><span id="char-count">0</span>/1000</span>
+        </div>
+        <button type="submit" id="submit-btn">
+          <span class="btn-text">Envoyer</span>
+          <span class="btn-loader" hidden>Envoi en cours…</span>
+        </button>
+      </form>
+      <div id="form-error" class="error-msg" hidden></div>
+    </section>
+
+    <section class="messages-section">
+      <div class="messages-header">
+        <h2>Messages</h2>
+        <span id="message-count" class="badge" hidden></span>
+      </div>
+      <div id="messages-container">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </section>
+
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
