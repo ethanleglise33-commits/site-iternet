@@ -105,11 +105,15 @@ function setupAuthForms() {
       currentUser = data.user;
       localStorage.setItem(TOKEN_KEY, currentSession.access_token);
 
+      // Connexion validée: on passe tout de suite au chat.
       showApp();
       loginForm.reset();
-      await bootstrapChatSafe();
+
+      // Le chargement du chat ne doit jamais te renvoyer sur la page login.
+      bootstrapChatSafe().catch(() => {
+        messagesContainer.innerHTML = '<div class="error-msg">Connecte, mais impossible de charger le chat pour le moment.</div>';
+      });
     } catch (err) {
-      showAuth();
       errBox.textContent = normalizeError(err.message);
       errBox.hidden = false;
     } finally {
