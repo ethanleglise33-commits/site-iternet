@@ -33,14 +33,6 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, version: 'chatspace-auth-v2' });
 });
 
-// ── Config publique (anon key est safe à exposer) ─────────────────────────
-app.get('/api/config', (req, res) => {
-  res.json({
-    supabaseUrl:     process.env.SUPABASE_URL,
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
-  });
-});
-
 // ── Middleware auth ────────────────────────────────────────────────────────
 async function authenticateUser(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -56,6 +48,75 @@ async function authenticateUser(req, res, next) {
   req.token = token;
   next();
 }
+
+// ── Auth backend (évite les blocages navigateur -> Supabase) ───────────────
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email et mot de passe requis.' });
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (!data?.session || !data?.user) {
+      return res.status(401).json({ error: 'Connexion impossible.' });
+    }
+
+    res.json({
+      user: data.user,
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+      },
+    });
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, username } = req.body;
+    if (!email || !password || !username) {
+      return res.status(400).json({ error: 'Email, mot de passe et username requis.' });
+    }
+
+    const safeUsername = String(username).trim().slice(0, 30);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username: safeUsername } },
+    });
+    if (error) throw error;
+
+    res.status(201).json({
+      message: 'Compte créé. Connecte-toi maintenant.',
+      user: data.user || null,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/me', authenticateUser, async (req, res) => {
+  res.json({ user: req.user });
+});
+
+app.get('/api/profile', authenticateUser, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username, avatar_color')
+      .eq('id', req.user.id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── GET messages (public) ──────────────────────────────────────────────────
 app.get('/api/messages', async (req, res) => {

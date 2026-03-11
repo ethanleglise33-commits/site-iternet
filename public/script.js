@@ -1,9 +1,9 @@
 const API_BASE = '/api';
+const TOKEN_KEY = 'chatspace_access_token';
 
-let supabaseClient = null;
 let currentSession = null;
 let currentUser = null;
-let realtimeChannel = null;
+let pollTimer = null;
 let switchAuthTab = null;
 
 const authScreen = document.getElementById('auth-screen');
@@ -22,40 +22,26 @@ async function init() {
   setupMessageForm();
   setupLogout();
 
-  try {
-    const res = await fetch(`${API_BASE}/config`);
-    if (!res.ok) throw new Error('Config serveur indisponible.');
-
-    const { supabaseUrl, supabaseAnonKey } = await res.json();
-    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-      currentSession = session;
-      currentUser = session?.user || null;
-
-      if (currentUser) {
-        showApp();
-        await bootstrapChatSafe();
-      } else {
-        showAuth();
-        unsubscribeRealtime();
-      }
-    });
-
-    const { data } = await supabaseClient.auth.getSession();
-    currentSession = data.session;
-    currentUser = data.session?.user || null;
-
-    if (currentUser) {
-      showApp();
-      await bootstrapChatSafe();
-    } else {
-      showAuth();
-    }
-  } catch (err) {
-    showGlobalAuthError(err.message || 'Erreur initialisation.');
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
     showAuth();
+    return;
   }
+
+  currentSession = { access_token: token };
+  const me = await fetchJson(`${API_BASE}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => null);
+
+  if (!me?.user) {
+    clearSession();
+    showAuth();
+    return;
+  }
+
+  currentUser = me.user;
+  showApp();
+  await bootstrapChatSafe();
 }
 
 function setupTabs() {
@@ -101,30 +87,30 @@ function setupAuthForms() {
     toggleLoading(button, true, 'Connexion...');
 
     try {
-      const { data, error } = await withTimeout(
-        supabaseClient.auth.signInWithPassword({ email, password }),
+      const data = await withTimeout(
+        fetchJson(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        }),
         15000,
-        'Connexion trop longue. Vérifie SUPABASE_URL/SUPABASE_ANON_KEY et ta connexion internet.'
+        'Connexion trop longue. Reessaie dans quelques secondes.'
       );
-      if (error) throw error;
 
-      if (!data?.session) {
-        throw new Error('Session introuvable après connexion.');
+      if (!data?.session?.access_token || !data?.user) {
+        throw new Error('Connexion impossible.');
       }
 
       currentSession = data.session;
       currentUser = data.user;
+      localStorage.setItem(TOKEN_KEY, currentSession.access_token);
 
       showApp();
       loginForm.reset();
-
-      // On charge le chat en arrière-plan pour ne pas bloquer l'écran de connexion.
-      bootstrapChatSafe().catch(() => {
-        messagesContainer.innerHTML = '<div class="error-msg">Connexion ok, mais impossible de charger le chat pour le moment.</div>';
-      });
+      await bootstrapChatSafe();
     } catch (err) {
       showAuth();
-      errBox.textContent = normalizeSupabaseError(err.message);
+      errBox.textContent = normalizeError(err.message);
       errBox.hidden = false;
     } finally {
       toggleLoading(button, false);
@@ -145,12 +131,11 @@ function setupAuthForms() {
     toggleLoading(button, true, 'Creation...');
 
     try {
-      const { error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: { data: { username } },
+      await fetchJson(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, username }),
       });
-      if (error) throw error;
 
       registerForm.reset();
       if (typeof switchAuthTab === 'function') switchAuthTab('login');
@@ -164,7 +149,7 @@ function setupAuthForms() {
       loginError.style.borderColor = 'rgba(87, 242, 179, 0.4)';
       loginError.hidden = false;
     } catch (err) {
-      errBox.textContent = normalizeSupabaseError(err.message);
+      errBox.textContent = normalizeError(err.message);
       errBox.hidden = false;
     } finally {
       toggleLoading(button, false);
@@ -189,12 +174,9 @@ function setupMessageForm() {
 }
 
 function setupLogout() {
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    try {
-      await supabaseClient.auth.signOut();
-    } catch (err) {
-      alert(err.message);
-    }
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    clearSession();
+    showAuth();
   });
 }
 
@@ -212,7 +194,7 @@ async function bootstrapChatSafe() {
     messagesContainer.innerHTML = '<div class="error-msg">Impossible de charger les messages.</div>';
   }
 
-  subscribeRealtime();
+  startPolling();
 }
 
 async function sendMessage() {
@@ -220,11 +202,10 @@ async function sendMessage() {
 
   const text = messageInput.value.trim();
   if (!text) return;
-
   formError.hidden = true;
 
   try {
-    const res = await fetch(`${API_BASE}/messages`, {
+    await fetchJson(`${API_BASE}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -233,22 +214,17 @@ async function sendMessage() {
       body: JSON.stringify({ text }),
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur envoi message.');
-
     messageInput.value = '';
     autoResizeMessageInput();
     await loadMessages();
   } catch (err) {
-    formError.textContent = err.message;
+    formError.textContent = normalizeError(err.message);
     formError.hidden = false;
   }
 }
 
 async function loadMessages() {
-  const res = await fetch(`${API_BASE}/messages`);
-  if (!res.ok) throw new Error('Impossible de charger les messages.');
-  const messages = await res.json();
+  const messages = await fetchJson(`${API_BASE}/messages`);
 
   if (!messages.length) {
     messagesContainer.innerHTML = '<div class="empty-state">Aucun message. Lance la premiere discussion.</div>';
@@ -285,50 +261,45 @@ async function deleteMessage(id) {
   if (!confirm('Supprimer ce message ?')) return;
 
   try {
-    const res = await fetch(`${API_BASE}/messages/${encodeURIComponent(id)}`, {
+    await fetchJson(`${API_BASE}/messages/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${currentSession.access_token}` },
     });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Suppression impossible.');
-
     await loadMessages();
   } catch (err) {
-    alert(err.message);
+    alert(normalizeError(err.message));
   }
 }
 
 window.deleteMessage = deleteMessage;
 
 async function refreshCurrentUserProfile() {
-  const { data, error } = await supabaseClient
-    .from('profiles')
-    .select('username, avatar_color')
-    .eq('id', currentUser.id)
-    .single();
-
-  if (error) throw error;
+  const data = await fetchJson(`${API_BASE}/profile`, {
+    headers: { Authorization: `Bearer ${currentSession.access_token}` },
+  });
 
   sidebarUsername.textContent = data.username;
   sidebarAvatar.style.background = data.avatar_color || '#4a6bff';
 }
 
-function subscribeRealtime() {
-  if (realtimeChannel || !supabaseClient) return;
-
-  realtimeChannel = supabaseClient
-    .channel('messages-live-room')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-      loadMessages().catch(() => {});
-    })
-    .subscribe();
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    loadMessages().catch(() => {});
+  }, 4000);
 }
 
-function unsubscribeRealtime() {
-  if (!realtimeChannel || !supabaseClient) return;
-  supabaseClient.removeChannel(realtimeChannel);
-  realtimeChannel = null;
+function stopPolling() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+function clearSession() {
+  currentSession = null;
+  currentUser = null;
+  localStorage.removeItem(TOKEN_KEY);
+  stopPolling();
 }
 
 function showAuth() {
@@ -339,12 +310,6 @@ function showAuth() {
 function showApp() {
   authScreen.hidden = true;
   appScreen.hidden = false;
-}
-
-function showGlobalAuthError(message) {
-  const box = document.getElementById('login-error');
-  box.textContent = message;
-  box.hidden = false;
 }
 
 function autoResizeMessageInput() {
@@ -367,7 +332,7 @@ function normalizeProfile(profileValue) {
   return profileValue;
 }
 
-function normalizeSupabaseError(message = '') {
+function normalizeError(message = '') {
   if (message.includes('Invalid login credentials')) return 'Identifiants invalides.';
   if (message.includes('User already registered')) return 'Cet email existe deja.';
   if (message.includes('Password should be at least')) return 'Mot de passe trop court.';
@@ -414,6 +379,13 @@ function resetAuthNoticeStyle(element) {
   element.style.color = '';
   element.style.background = '';
   element.style.borderColor = '';
+}
+
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Erreur HTTP ${res.status}`);
+  return data;
 }
 
 function withTimeout(promise, timeoutMs, message) {
