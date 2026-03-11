@@ -1,9 +1,7 @@
 services:
   - type: web
     name: site-iternet
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    env: docker
     envVars:
       - key: NODE_ENV
         value: production
