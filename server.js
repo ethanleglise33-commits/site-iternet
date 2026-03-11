@@ -65,16 +65,15 @@ app.delete('/api/messages/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Valider le format UUID pour éviter les injections
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
+    // Vérifie que l'id est un nombre
+    if (isNaN(id)) {
       return res.status(400).json({ error: 'ID invalide.' });
     }
 
     const { error } = await supabase
       .from('messages')
       .delete()
-      .eq('id', id);
+      .eq('id', Number(id));
 
     if (error) throw error;
     res.json({ success: true });
