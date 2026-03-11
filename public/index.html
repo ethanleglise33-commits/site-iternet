@@ -17,12 +17,12 @@
       <p class="auth-subtitle">Rejoignez la conversation</p>
 
       <div class="auth-tabs">
-        <button class="tab-btn active" data-tab="login">Connexion</button>
-        <button class="tab-btn" data-tab="register">Inscription</button>
+        <button type="button" class="tab-btn active" data-tab="login">Connexion</button>
+        <button type="button" class="tab-btn" data-tab="register">Inscription</button>
       </div>
 
       <!-- Connexion -->
-      <form id="login-form" class="auth-form">
+      <form id="login-form" class="auth-form active">
         <input type="email"    id="login-email"    placeholder="Email"        required autocomplete="email">
         <input type="password" id="login-password" placeholder="Mot de passe" required>
         <button type="submit" id="login-btn" class="auth-btn">
@@ -33,7 +33,7 @@
       </form>
 
       <!-- Inscription -->
-      <form id="register-form" class="auth-form" hidden>
+      <form id="register-form" class="auth-form">
         <input type="text"     id="reg-username" placeholder="Nom d'utilisateur" required maxlength="30" pattern="[a-zA-Z0-9_-]{2,30}">
         <input type="email"    id="reg-email"    placeholder="Email"              required autocomplete="email">
         <input type="password" id="reg-password" placeholder="Mot de passe (min. 6 caractères)" required minlength="6" autocomplete="new-password">

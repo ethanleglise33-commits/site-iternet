@@ -132,8 +132,12 @@ body {
 }
 
 .auth-form {
-  display: grid;
+  display: none;
   gap: 10px;
+}
+
+.auth-form.active {
+  display: grid;
 }
 
 .auth-form input,
