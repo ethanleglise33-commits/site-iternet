@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
+/* Garantit que l'attribut HTML `hidden` fonctionne même quand le CSS
+   définit un display explicite (ex: .auth-screen { display: grid }) */
+[hidden] { display: none !important; }
+
 :root {
   --bg-0: #05070f;
   --bg-1: #0c1428;
