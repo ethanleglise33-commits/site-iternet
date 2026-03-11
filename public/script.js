@@ -101,7 +101,11 @@ function setupAuthForms() {
     toggleLoading(button, true, 'Connexion...');
 
     try {
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      const { data, error } = await withTimeout(
+        supabaseClient.auth.signInWithPassword({ email, password }),
+        15000,
+        'Connexion trop longue. Vérifie SUPABASE_URL/SUPABASE_ANON_KEY et ta connexion internet.'
+      );
       if (error) throw error;
 
       if (!data?.session) {
@@ -112,8 +116,12 @@ function setupAuthForms() {
       currentUser = data.user;
 
       showApp();
-      await bootstrapChatSafe();
       loginForm.reset();
+
+      // On charge le chat en arrière-plan pour ne pas bloquer l'écran de connexion.
+      bootstrapChatSafe().catch(() => {
+        messagesContainer.innerHTML = '<div class="error-msg">Connexion ok, mais impossible de charger le chat pour le moment.</div>';
+      });
     } catch (err) {
       showAuth();
       errBox.textContent = normalizeSupabaseError(err.message);
@@ -406,6 +414,15 @@ function resetAuthNoticeStyle(element) {
   element.style.color = '';
   element.style.background = '';
   element.style.borderColor = '';
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
 }
 
 init();
