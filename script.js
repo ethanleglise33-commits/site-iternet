@@ -1,5 +1,5 @@
 const supabaseUrl = "https://urvkactimexdmvstjcxo.supabase.co"
-const supabaseKey = "sb_publishable_C_c5Zv-8KJkqSDJmCZlsCg_1cTt2_EV"
+const supabaseKey = "sb_publishable_iqDdMf02q_3CUFYSSle2TQ_MqjCn6-e"
 
 const supabase = supabase.createClient(supabaseUrl, supabaseKey)
 
